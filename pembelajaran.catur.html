@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Minimal Chess</title>
+    <style>
+        pre { font-size: 40px; line-height: 1; letter-spacing: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Chess Game (Text-based in Browser)</h1>
+    <pre id="board"></pre>
+    <p id="status">White to move</p>
+    <input id="move" placeholder="e.g. e4">
+    <button onclick="move()">Play</button>
+    <button onclick="reset()">Reset</button>
+    <script src="https://unpkg.com/chess.js@0.12.0/chess.js"></script>
+    <script>
+        let b = new Chess();
+        const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+        function evaluate() {
+            if (b.game_over()) {
+                if (b.in_checkmate()) return b.turn() === 'w' ? -9999 : 9999;
+                return 0;
+            }
+            let score = 0;
+            const board = b.board();
+            for (let row of board) for (let sq of row) if (sq) {
+                score += (sq.color === 'w' ? 1 : -1) * pieceValues[sq.type];
+            }
+            return score;
+        }
+        function botMove() {
+            let moves = b.moves({ verbose: true });
+            moves.sort((a, b) => (b.captured ? pieceValues[b.captured] : 0) - (a.captured ? pieceValues[a.captured] : 0));
+            let best = null;
+            let bestScore = Infinity;
+            for (let move of moves.slice(0, 8)) {
+                b.move(move);
+                let score = evaluate();
+                if (b.in_check()) score += 50;
+                b.undo();
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = move;
+                }
+            }
+            if (Math.random() < 0.2) {
+                best = moves[Math.floor(Math.random() * moves.length)];
+            }
+            b.move(best);
+            update();
+        }
+        function update() {
+            document.getElementById('board').textContent = b.ascii();
+            document.getElementById('status').textContent = 
+                b.game_over() ? (b.in_checkmate() ? (b.turn()==='w'?'Black':'White')+' wins!' : 'Draw') : 
+                (b.turn()==='w'?'White':'Black')+' to move';
+        }
+        function move() {
+            let m = document.getElementById('move').value;
+            if (b.move(m)) {
+                update();
+                document.getElementById('move').value = '';
+                if (!b.game_over() && b.turn() === 'b') {
+                    setTimeout(botMove, 500);
+                }
+            } else alert('Invalid');
+        }
+        function reset() { b.reset(); update(); }
+        update();
+		document.getElementById('move').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                move();
+            }
+        });
+    </script>
+</body>
+</html>
